@@ -148,5 +148,3 @@ corrplot(corr_matrix, method = "color", type = "upper",
          title = "Correlation Heatmap of Numeric Variables", 
          mar = c(0,0,1,0))
 ```
-
-## Initial Data Exploration

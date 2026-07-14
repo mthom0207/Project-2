@@ -1,28 +1,34 @@
-#
-# This is a Shiny web application. You can run the application by clicking
-# the 'Run App' button above.
-#
-# Find out more about building applications with Shiny here:
-#
-#    https://shiny.posit.co/
-#
-
 library(shiny)
+library(bslib)
+library(ggplot2)
+library(dplyr)
+
+# Load data
+superstore_data <- read_excel("US Superstore data.xls", sheet = "Orders")
+
+#create variable groups
+category_vars <- c("Segment", "Category", "Sub-Category", "Region")
+numeric_vars <- c("Sales", "Profit", "Quantity", "Discount")
 
 # Define UI for application that draws a histogram
 ui <- fluidPage(
 
     # Application title
-    titlePanel("Old Faithful Geyser Data"),
+    titlePanel("US Superstore Data Explorer"),
 
     # Sidebar with a slider input for number of bins 
     sidebarLayout(
         sidebarPanel(
-            sliderInput("bins",
-                        "Number of bins:",
-                        min = 1,
-                        max = 50,
-                        value = 30)
+          h2("Select Variables to Subset and Explore!"),
+          
+          # Choose (at least) two categorical variables they can subset from.
+          
+          
+          
+          
+          
+          
+          
         ),
 
         # Show a plot of the generated distribution
