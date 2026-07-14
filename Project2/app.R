@@ -2,6 +2,10 @@ library(shiny)
 library(bslib)
 library(ggplot2)
 library(dplyr)
+library(readxl)         
+library(DT)
+library(shinycssloaders)
+library(tidyr)
 
 # Load data
 superstore_data <- read_excel("US Superstore data.xls", sheet = "Orders")
@@ -252,6 +256,63 @@ server <- function(input, output, session) {
           )
       }
     }
+  })
+  
+  output$exploration_plot <- renderPlot({
+    req(subsetted_data$data)
+    
+    withProgress(message = "Rendering plot...", value = 0, {
+      
+      # Categorical Plot
+      if (input$explore_type == "cat") {
+        req(input$cat_var)
+        
+        if (input$cat_var2 %in% c(".", "None")) {
+          ggplot(subsetted_data$data, aes(x = .data[[input$cat_var]], fill = .data[[input$cat_var]])) +
+            geom_bar() +
+            labs(title = paste("Number of Orders by", input$cat_var),
+                 x = input$cat_var, y = "Number of Orders")
+          
+        } else { 
+          ggplot(subsetted_data$data, aes(x = .data[[input$cat_var]], fill = .data[[input$cat_var2]])) +
+            geom_bar(position = "dodge") + 
+            labs(title = paste("Number of Orders by", input$cat_var, "and", input$cat_var2),
+                 x = input$cat_var, y = "Number of Orders", fill = input$cat_var2)
+        }
+        
+        # Numeric Plot
+      } else {
+        req(input$num_var)
+        
+        if (is.null(input$num_var2) || input$num_var2 %in% c(".", "None")) {
+          if (is.null(input$cat_var) || input$cat_var %in% c(".", "None")) {
+            ggplot(subsetted_data$data, aes(x = .data[[input$num_var]])) +
+              geom_histogram(fill = "darkcyan", color = "black", bins = 40) +
+              labs(title = paste("Distribution of", input$num_var), x = input$num_var, y = "Count")
+            
+          } else { 
+            ggplot(subsetted_data$data, aes(x = .data[[input$cat_var]], y = .data[[input$num_var]], fill = .data[[input$cat_var]])) +
+              geom_boxplot() +
+              coord_flip() +
+              labs(title = paste(input$num_var, "by", input$cat_var), x = input$cat_var, y = input$num_var) +
+              theme(legend.position = "none")
+          }
+          
+        } else { 
+          if (is.null(input$cat_var) || input$cat_var %in% c(".", "None")) {
+            ggplot(subsetted_data$data, aes(x = .data[[input$num_var]], y = .data[[input$num_var2]])) +
+              geom_point(color = "darkcyan", alpha = 0.5) +
+              labs(title = paste(input$num_var, "vs", input$num_var2), x = input$num_var, y = input$num_var2)
+          } else {
+            ggplot(subsetted_data$data, aes(x = .data[[input$num_var]], y = .data[[input$num_var2]])) +
+              geom_point(alpha = 0.5, color = "darkcyan") +
+              facet_wrap(as.formula(paste("~", paste0("`", input$cat_var, "`")))) +
+              labs(title = paste(input$num_var, "vs", input$num_var2, "by", input$cat_var),
+                   x = input$num_var, y = input$num_var2)
+          }
+        }
+      }
+    })
   })
 }
 
