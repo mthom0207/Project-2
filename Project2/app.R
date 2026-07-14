@@ -6,6 +6,10 @@ library(dplyr)
 # Load data
 superstore_data <- read_excel("US Superstore data.xls", sheet = "Orders")
 
+# Define global variable lookup vectors so they can be referenced inside the server
+category_vars <- c("Category", "Segment", "Sub-Category", "Region")
+numeric_vars  <- c("Sales", "Profit", "Quantity", "Discount")
+
 # Define UI for application that draws a histogram
 ui <- fluidPage(
 
@@ -116,16 +120,43 @@ ui <- fluidPage(
 # Define server logic 
 server <- function(input, output, session) {
 
-    output$distPlot <- renderPlot({
-        # generate bins based on input$bins from ui.R
-        x    <- faithful[, 2]
-        bins <- seq(min(x), max(x), length.out = input$bins + 1)
-
-        # draw the histogram with the specified number of bins
-        hist(x, breaks = bins, col = 'darkgray', border = 'white',
-             xlab = 'Waiting time to next eruption (in mins)',
-             main = 'Histogram of waiting times')
-    })
+  # Prevents users from selecting the same column variable in both inputs
+  observeEvent(input$num_var_choice, {
+    updateSelectizeInput(session, "num_var_choice2",
+                         choices = setdiff(numeric_vars, input$num_var_choice),
+                         selected = input$num_var_choice2)
+  })
+  
+  observeEvent(input$num_var_choice2, {
+    updateSelectizeInput(session, "num_var_choice",
+                         choices = setdiff(numeric_vars, input$num_var_choice2),
+                         selected = input$num_var_choice)
+  })
+  
+  output$dynamic_slider_ui <- renderUI({
+    req(input$num_var_choice)
+    sliderInput("num1_range",
+                label = paste("Select range for", input$num_var_choice, ":"),
+                min = min(superstore_data[[input$num_var_choice]], na.rm = TRUE),
+                max = max(superstore_data[[input$num_var_choice]], na.rm = TRUE),
+                value = c(min(superstore_data[[input$num_var_choice]], na.rm = TRUE),
+                          max(superstore_data[[input$num_var_choice]], na.rm = TRUE)))
+  })
+  
+  output$dynamic_slider2_ui <- renderUI({
+    req(input$num_var_choice2)
+    sliderInput("num2_range",
+                label = paste("Select range for", input$num_var_choice2, ":"),
+                min = min(superstore_data[[input$num_var_choice2]], na.rm = TRUE),
+                max = max(superstore_data[[input$num_var_choice2]], na.rm = TRUE),
+                value = c(min(superstore_data[[input$num_var_choice2]], na.rm = TRUE),
+                          max(superstore_data[[input$num_var_choice2]], na.rm = TRUE)))
+  })
+  
+  subsetted_data <- reactiveValues(data = NULL)
+  
+  
+  
 }
 
 # Run the application 
