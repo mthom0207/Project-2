@@ -155,8 +155,104 @@ server <- function(input, output, session) {
   
   subsetted_data <- reactiveValues(data = NULL)
   
+  #action button subset data logic
+  observeEvent(input$subset_data, {
+    req(input$num1_range, input$num2_range, input$CategoryFilter, input$SegmentFilter)
+    
+    temp_df <- superstore_data
+    
+    # Custom conditional check to safely handle the "All" options cleanly
+    if (input$CategoryFilter != "All") {
+      temp_df <- temp_df %>% filter(Category == input$CategoryFilter)
+    }
+    if (input$SegmentFilter != "All") {
+      temp_df <- temp_df %>% filter(Segment == input$SegmentFilter)
+    }
+    
+    # Filter by user-selected ranges on chosen variables
+    subsetted_data$data <- temp_df %>%
+      filter(
+        .data[[input$num_var_choice]] >= input$num1_range[1],
+        .data[[input$num_var_choice]] <= input$num1_range[2],
+        .data[[input$num_var_choice2]] >= input$num2_range[1],
+        .data[[input$num_var_choice2]] <= input$num2_range[2]
+      )
+  }, ignoreNULL = FALSE)
   
+  #Display the data table
+  output$superstore_table <- DT::renderDataTable({
+    req(subsetted_data$data)
+    DT::datatable(subsetted_data$data, options = list(pageLength = 5))
+  })
   
+  #Data Download tab
+  output$download_data <- downloadHandler(
+    filename = function() {
+      paste0("superstore_subsetted.csv")
+    },
+    content = function(file) {
+      write.csv(subsetted_data$data, file, row.names = FALSE)
+    }
+  )
+  
+  #Variable selection 
+  output$explore_inputs <- renderUI({
+    req(subsetted_data$data)
+    
+    if (input$explore_type == "cat") {
+      tagList(
+        selectInput("cat_var", "Select categorical variable:", choices = category_vars),
+        selectInput("cat_var2", "Optional 2nd categorical variable:", choices = c(None = ".", category_vars))
+      )
+    } else {
+      tagList(
+        selectInput("num_var", "Select numeric variable:", choices = numeric_vars),
+        selectInput("num_var2", "Optional 2nd numeric variable (plot tab only):", choices = c(None = ".", numeric_vars)),
+        selectInput("cat_var", "Optional categorical variable:", choices = c(None = ".", category_vars))
+      )
+    }
+  })
+  
+  #Exploration Tables and Summaries
+  
+  output$exploration_table <- renderTable({
+    req(subsetted_data$data)
+    
+    # Categorical Tables
+    if (input$explore_type == "cat") {
+      req(input$cat_var)
+      
+      if (input$cat_var2 %in% c(".", "None")) {
+        tbl <- table(subsetted_data$data[[input$cat_var]])
+        df <- data.frame(Category = names(tbl), Frequency = as.vector(tbl))
+        return(df)
+      } else {
+        subsetted_data$data %>%
+          count(.data[[input$cat_var]], .data[[input$cat_var2]]) %>%
+          pivot_wider(names_from = input$cat_var2, values_from = n, values_fill = 0) 
+      }
+      
+      # Numeric Summary Tables
+    } else if (input$explore_type == "num") {
+      req(input$num_var)
+      if (is.null(input$cat_var) || input$cat_var == ".") {
+        subsetted_data$data |>
+          summarise(
+            mean = mean(.data[[input$num_var]], na.rm = TRUE),
+            median = median(.data[[input$num_var]], na.rm = TRUE),
+            sd = sd(.data[[input$num_var]], na.rm = TRUE)
+          )
+      } else { 
+        subsetted_data$data |>
+          group_by(.data[[input$cat_var]]) |>
+          summarise(
+            mean = mean(.data[[input$num_var]], na.rm = TRUE),
+            median = median(.data[[input$num_var]], na.rm = TRUE),
+            sd = sd(.data[[input$num_var]], na.rm = TRUE)
+          )
+      }
+    }
+  })
 }
 
 # Run the application 
