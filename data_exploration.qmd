@@ -28,6 +28,7 @@ To start, the following steps will be done in a 'static' manner:
 ### Reading in the data
 
 ```{r}
+#| warning: FALSE
 library(tidyverse)
 library(dplyr)
 library(ggplot2)
@@ -79,5 +80,73 @@ superstore_data %>%
 On average based on what is observed, `Technology` category has the highest average sales and profit in comparison to the other categories.
 
 ### Graphical Summaries
+
+Creating graphical summaries and plots to help visualize our data. We display multivariate information, facet by variables, and end with a unique plot.
+
+```{r}
+library(corrplot)
+# bar plot to visualize the one-way contigency table. This gives us a graphical representation showing that Office Supplies is the most common product group in which orders are put. 
+# Bar Chart (Univariate Categorical)
+ggplot(superstore_data, aes(x = Category)) +
+  geom_bar(fill = "steelblue") +
+  labs(title = "Number of Orders by Category", 
+       x = "Category",
+       y = "Number of Orders") 
+
+# visual representation of the two-way contigency table. This plot gives multivariate information regarding `Category` and `Segment`. 
+# Side-by-side Bar Chart (Multivariate Categorical)
+ggplot(superstore_data, aes(x = Category, fill = Segment)) +
+  geom_bar(position = "fill") +
+  labs(title = "Proportion of Orders by Category and Segment", x = "Category", 
+       y = "Proportion of Orders", 
+       fill = "Product Segment")
+
+# A visual graph to nummerical summaries visualizing the Profit, colored by Category.This helps identify outliers and visualize profit margins. This scatter plot shows the selling price of products and the profit gained from them. Because of the extreme outliers, the plot "zooms out" forming a dense cluster near the origin. 
+# Scatter Plot (Multivariate - Numeric and Categorical)
+ggplot(superstore_data, aes(x = Sales, y = Profit, color = Category)) +
+  geom_point(alpha = 0.5) +
+  labs(title = "Sales vs. Profit by Product Category",
+       x = "Sales",
+       y = "Profit")
+
+# See how sale price of categories has changed between 2014- 2018. It helps us look for seasonlity, cyclical spending habits, or long-term pricing trends. By looking at the line plot below, we cannot see any significant trend in prices rising or falling over these years. Dense clustering shows persistent transaction volumes without an obvious upward or downward trend in base prices. 
+# Line Plot with Faceting (Time Series by Category)
+ggplot(superstore_data, aes(x = `Order Date`, y = Sales, color = Category)) +
+  geom_line(linewidth = 0.75) +
+  facet_wrap(~ Category) +
+  labs(title = "Sales Over Time by Order Category",
+       x = "Order Date",
+       y = "Sales (selling price)",
+       color = "Order Category")
+
+# Box plots are perfect for visualizing the distribution, median, and 
+# spread of order sizes across our different customer Segments. It highlights the typical 
+# transaction value while clearly isolating outlier purchases
+# Box Plot (Multivariate - Numeric across Categorical)
+ggplot(superstore_data, aes(x = Segment, y = Sales, fill = Segment)) +
+  geom_boxplot() +
+  labs(title = "Sales Distribution by Segment", x = "Segment", y = "Sales")
+
+
+#This plot provides a deep-dive, multi-dimensional view of our data. 
+# By plotting Profit vs. Sales, coloring by Category, and faceting by Segment, we can isolate highly specific business trends. For example, it allows us to investigate if Consumer Furniture sales are inherently less profitable than Corporate Furniture sales.
+# Scatter Plot with Faceting (Multivariate, colored, and faceted)
+ggplot(superstore_data, aes(x = Sales, y = Profit, color = Category)) +
+  geom_point(alpha = 0.5) +
+  facet_wrap(~ Segment) +
+  labs(title = "Profit vs Sales by Segment and Category", x = "Sales", y = "Profit")
+
+# A correlation heatmap instantly quantifies the mathematical relationships between all our key numeric metrics. This is incredibly powerful for pricing strategy. 
+# it visually confirms the strength of the negative correlation between 'Discount' and 'Profit', showing exactly how much discounting eats into our bottom line.
+# Heatmap (Plot type not typically covered in standard intro)
+# Correlation matrix of numeric variables
+numeric_vars <- superstore_data %>% select(Sales, Quantity, Discount, Profit) %>% na.omit()
+corr_matrix <- cor(numeric_vars)
+
+corrplot(corr_matrix, method = "color", type = "upper", 
+         addCoef.col = "black", tl.col = "black", tl.srt = 45,
+         title = "Correlation Heatmap of Numeric Variables", 
+         mar = c(0,0,1,0))
+```
 
 ## Initial Data Exploration
