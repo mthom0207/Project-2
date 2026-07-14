@@ -1,5 +1,83 @@
 ---
-title: "data_exploration"
+title: "Data Exploration - US Superstore"
+author: "Merilyn Thomas"
 format: html
+editor: visual
 ---
 
+## Initial Data Exploration
+
+To start, the following steps will be done in a 'static' manner:
+
+- Produce numerical and graphical summaries to investigate the data. These should include:
+
+  - One-Way and Two-Way Contingency Tables
+
+  - Numerical Summaries (Means, Medians, Standard Deviations, etc) for quantitative variables at levels of categorical variables.
+
+  - Create at least six distinct plots (bar chart, side-by-side bar chart, histogram, box plot, scatter plot, faceted version of one of those, etc)
+
+    - At least four of these should display multivariate information via the type of graph, by utilizing coloring, grouping, etc.
+
+    - All plots should have nice labels and titles.
+
+    - Some kind of faceting should be used somewhere.
+
+    - At least one plot should be a plot that we didn't cover in class (say a heatmap or something like that)
+
+### Reading in the data
+
+```{r}
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(readxl)
+
+superstore_data <- read_excel("US Superstore data.xls", sheet = "Orders")
+superstore_data
+```
+
+### Numerical Summaries
+
+#### One-Way and Two-Way Contingency Tables
+
+Let's look at numerical summaries to investigate the US Superstore data. First, let's investigate the different categories of orders that are placed. The variable used is called `Category` and the orders can be placed from the following product groups: `Furniture`, `Office Supplies`, or `Technology`.
+
+After observing the one-way contingency table below, we can see that a majority of orders are in the Office Supplies Category.
+
+```{r}
+table(superstore_data$Category)
+```
+
+The extra factor added to this data. Let's analyze the different sections from where the orders are placed. The extra variable used is called `Segment`. Adding in this extra factor allows us to understand purchasing behaviors across different types of buyers. It helps us understand which Segment of of customer buys different product groups.
+
+```{r}
+table(superstore_data$Category, superstore_data$Segment)
+```
+
+#### Numerical Summaries (Means, Medians, Standard Deviations, etc)
+
+Numerical Summaries (means, medians, sds, etc.) for quantitative variables at levels of categorical variables. The below data shows the summaries for `Sales` (the selling price of each product) and `Profit` (the profit gained on each product), as they relate to each order **category**.
+
+```{r}
+# Mean and Median Sales across different categories
+superstore_data %>%
+  group_by(Category) %>%
+  summarize(
+    #Sales Summaries
+    Mean_Sales = mean(Sales, na.rm = TRUE),
+    Median_Sales = median(Sales, na.rm = TRUE),
+    SD_Sales = sd(Sales, na.rm = TRUE),
+    
+    #Profit Summaries
+    Mean_Profit = mean(Profit, na.rm = TRUE),
+    Median_Profit = median(Profit, na.rm = TRUE),
+    SD_Profit = sd(Profit, na.rm = TRUE)
+  )
+```
+
+On average based on what is observed, `Technology` category has the highest average sales and profit in comparison to the other categories.
+
+### Graphical Summaries
+
+## Initial Data Exploration
