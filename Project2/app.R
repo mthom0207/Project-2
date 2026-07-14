@@ -123,7 +123,7 @@ ui <- fluidPage(
     
 # Define server logic 
 server <- function(input, output, session) {
-
+  
   # Prevents users from selecting the same column variable in both inputs
   observeEvent(input$num_var_choice, {
     updateSelectizeInput(session, "num_var_choice2",
@@ -157,15 +157,15 @@ server <- function(input, output, session) {
                           max(superstore_data[[input$num_var_choice2]], na.rm = TRUE)))
   })
   
-  subsetted_data <- reactiveValues(data = NULL)
+  # Initialize reactive values with full data baseline so it is not blank on launch
+  subsetted_data <- reactiveValues(data = superstore_data)
   
-  #action button subset data logic
+  # Action button subset data logic
   observeEvent(input$subset_data, {
-    req(input$num1_range, input$num2_range, input$CategoryFilter, input$SegmentFilter)
+    req(input$CategoryFilter, input$SegmentFilter)
     
     temp_df <- superstore_data
     
-    # Custom conditional check to safely handle the "All" options cleanly
     if (input$CategoryFilter != "All") {
       temp_df <- temp_df %>% filter(Category == input$CategoryFilter)
     }
@@ -173,148 +173,139 @@ server <- function(input, output, session) {
       temp_df <- temp_df %>% filter(Segment == input$SegmentFilter)
     }
     
-    # Filter by user-selected ranges on chosen variables
-    subsetted_data$data <- temp_df %>%
-      filter(
-        .data[[input$num_var_choice]] >= input$num1_range[1],
-        .data[[input$num_var_choice]] <= input$num1_range[2],
-        .data[[input$num_var_choice2]] >= input$num2_range[1],
-        .data[[input$num_var_choice2]] <= input$num2_range[2]
-      )
+    # Safely apply numerical filters if dynamic UI is loaded
+    if (!is.null(input$num1_range) && !is.null(input$num2_range)) {
+      temp_df <- temp_df %>%
+        filter(
+          .data[[input$num_var_choice]] >= input$num1_range[1],
+          .data[[input$num_var_choice]] <= input$num1_range[2],
+          .data[[input$num_var_choice2]] >= input$num2_range[1],
+          .data[[input$num_var_choice2]] <= input$num2_range[2]
+        )
+    }
+    
+    subsetted_data$data <- temp_df
   }, ignoreNULL = FALSE)
   
-  #Display the data table
+  # Display the data table
   output$superstore_table <- DT::renderDataTable({
     req(subsetted_data$data)
-    DT::datatable(subsetted_data$data, options = list(pageLength = 5))
+    DT::datatable(subsetted_data$data, options = list(pageLength = 5, scrollX = TRUE))
   })
   
-  #Data Download tab
+  # Data Download tab
   output$download_data <- downloadHandler(
-    filename = function() {
-      paste0("superstore_subsetted.csv")
-    },
-    content = function(file) {
-      write.csv(subsetted_data$data, file, row.names = FALSE)
-    }
+    filename = function() { paste0("superstore_subsetted.csv") },
+    content = function(file) { write.csv(subsetted_data$data, file, row.names = FALSE) }
   )
   
-  #Variable selection 
+  # Variable selection layout with explicit custom modifier controls (color, faceting)
   output$explore_inputs <- renderUI({
     req(subsetted_data$data)
     
     if (input$explore_type == "cat") {
       tagList(
-        selectInput("cat_var", "Select categorical variable:", choices = category_vars),
-        selectInput("cat_var2", "Optional 2nd categorical variable:", choices = c(None = ".", category_vars))
+        fluidRow(
+          column(6, selectInput("cat_var", "Select Primary Categorical Variable:", choices = category_vars)),
+          column(6, selectInput("cat_var2", "Select Modifying/Grouping Variable:", choices = c(None = ".", category_vars)))
+        )
       )
     } else {
       tagList(
-        selectInput("num_var", "Select numeric variable:", choices = numeric_vars),
-        selectInput("num_var2", "Optional 2nd numeric variable (plot tab only):", choices = c(None = ".", numeric_vars)),
-        selectInput("cat_var", "Optional categorical variable:", choices = c(None = ".", category_vars))
+        fluidRow(
+          column(4, selectInput("num_var", "Select Numeric Variable:", choices = numeric_vars)),
+          column(4, selectInput("num_var2", "Optional 2nd Numeric Variable (Scatter):", choices = c(None = ".", numeric_vars))),
+          column(4, selectInput("cat_var", "Grouping/Modifier (Categorical):", choices = c(None = ".", category_vars)))
+        ),
+        fluidRow(
+          column(6, selectInput("facet_var", "Facet Plots By:", choices = c(None = ".", category_vars)))
+        )
       )
     }
   })
   
-  #Exploration Tables and Summaries
-  
+  # Exploration Tables and Summaries
   output$exploration_table <- renderTable({
     req(subsetted_data$data)
+    # Error prevention rule check
+    validate(need(nrow(subsetted_data$data) > 0, "No data available with current subset settings."))
     
-    # Categorical Tables
     if (input$explore_type == "cat") {
       req(input$cat_var)
-      
       if (input$cat_var2 %in% c(".", "None")) {
         tbl <- table(subsetted_data$data[[input$cat_var]])
-        df <- data.frame(Category = names(tbl), Frequency = as.vector(tbl))
-        return(df)
+        return(data.frame(Category = names(tbl), Frequency = as.vector(tbl)))
       } else {
         subsetted_data$data %>%
           count(.data[[input$cat_var]], .data[[input$cat_var2]]) %>%
           pivot_wider(names_from = input$cat_var2, values_from = n, values_fill = 0) 
       }
-      
-      # Numeric Summary Tables
     } else if (input$explore_type == "num") {
       req(input$num_var)
       if (is.null(input$cat_var) || input$cat_var == ".") {
-        subsetted_data$data |>
-          summarise(
-            mean = mean(.data[[input$num_var]], na.rm = TRUE),
-            median = median(.data[[input$num_var]], na.rm = TRUE),
-            sd = sd(.data[[input$num_var]], na.rm = TRUE)
-          )
+        subsetted_data$data %>%
+          summarise(Mean = mean(.data[[input$num_var]], na.rm = TRUE),
+                    Median = median(.data[[input$num_var]], na.rm = TRUE),
+                    SD = sd(.data[[input$num_var]], na.rm = TRUE))
       } else { 
-        subsetted_data$data |>
-          group_by(.data[[input$cat_var]]) |>
-          summarise(
-            mean = mean(.data[[input$num_var]], na.rm = TRUE),
-            median = median(.data[[input$num_var]], na.rm = TRUE),
-            sd = sd(.data[[input$num_var]], na.rm = TRUE)
-          )
+        subsetted_data$data %>%
+          group_by(.data[[input$cat_var]]) %>%
+          summarise(Mean = mean(.data[[input$num_var]], na.rm = TRUE),
+                    Median = median(.data[[input$num_var]], na.rm = TRUE),
+                    SD = sd(.data[[input$num_var]], na.rm = TRUE))
       }
     }
   })
   
+  # Exploration Plots with validation and advanced faceting logic
   output$exploration_plot <- renderPlot({
     req(subsetted_data$data)
+    validate(need(nrow(subsetted_data$data) > 0, "No data matching criteria to generate plots."))
     
     withProgress(message = "Rendering plot...", value = 0, {
       
-      # Categorical Plot
       if (input$explore_type == "cat") {
         req(input$cat_var)
-        
         if (input$cat_var2 %in% c(".", "None")) {
-          ggplot(subsetted_data$data, aes(x = .data[[input$cat_var]], fill = .data[[input$cat_var]])) +
-            geom_bar() +
-            labs(title = paste("Number of Orders by", input$cat_var),
-                 x = input$cat_var, y = "Number of Orders")
-          
+          p <- ggplot(subsetted_data$data, aes(x = .data[[input$cat_var]], fill = .data[[input$cat_var]])) +
+            geom_bar() + labs(title = paste("Orders Count by", input$cat_var), y = "Count")
         } else { 
-          ggplot(subsetted_data$data, aes(x = .data[[input$cat_var]], fill = .data[[input$cat_var2]])) +
-            geom_bar(position = "dodge") + 
-            labs(title = paste("Number of Orders by", input$cat_var, "and", input$cat_var2),
-                 x = input$cat_var, y = "Number of Orders", fill = input$cat_var2)
+          p <- ggplot(subsetted_data$data, aes(x = .data[[input$cat_var]], fill = .data[[input$cat_var2]])) +
+            geom_bar(position = "dodge") + labs(title = paste("Orders by", input$cat_var, "and", input$cat_var2))
         }
+        return(p)
         
-        # Numeric Plot
       } else {
         req(input$num_var)
-        
+        # 1-Variable Numeric Layout (Histogram / Boxplot)
         if (is.null(input$num_var2) || input$num_var2 %in% c(".", "None")) {
           if (is.null(input$cat_var) || input$cat_var %in% c(".", "None")) {
-            ggplot(subsetted_data$data, aes(x = .data[[input$num_var]])) +
-              geom_histogram(fill = "darkcyan", color = "black", bins = 40) +
-              labs(title = paste("Distribution of", input$num_var), x = input$num_var, y = "Count")
-            
+            p <- ggplot(subsetted_data$data, aes(x = .data[[input$num_var]])) +
+              geom_histogram(fill = "darkcyan", color = "black", bins = 30) +
+              labs(title = paste("Histogram Distribution of", input$num_var))
           } else { 
-            ggplot(subsetted_data$data, aes(x = .data[[input$cat_var]], y = .data[[input$num_var]], fill = .data[[input$cat_var]])) +
-              geom_boxplot() +
-              coord_flip() +
-              labs(title = paste(input$num_var, "by", input$cat_var), x = input$cat_var, y = input$num_var) +
-              theme(legend.position = "none")
+            p <- ggplot(subsetted_data$data, aes(x = .data[[input$cat_var]], y = .data[[input$num_var]], fill = .data[[input$cat_var]])) +
+              geom_boxplot() + coord_flip() + labs(title = paste(input$num_var, "Distribution Across", input$cat_var))
           }
-          
+          # 2-Variable Scatter plots
         } else { 
           if (is.null(input$cat_var) || input$cat_var %in% c(".", "None")) {
-            ggplot(subsetted_data$data, aes(x = .data[[input$num_var]], y = .data[[input$num_var2]])) +
-              geom_point(color = "darkcyan", alpha = 0.5) +
-              labs(title = paste(input$num_var, "vs", input$num_var2), x = input$num_var, y = input$num_var2)
+            p <- ggplot(subsetted_data$data, aes(x = .data[[input$num_var]], y = .data[[input$num_var2]])) +
+              geom_point(color = "darkcyan", alpha = 0.6) + labs(title = paste(input$num_var, "vs", input$num_var2))
           } else {
-            ggplot(subsetted_data$data, aes(x = .data[[input$num_var]], y = .data[[input$num_var2]])) +
-              geom_point(alpha = 0.5, color = "darkcyan") +
-              facet_wrap(as.formula(paste("~", paste0("`", input$cat_var, "`")))) +
-              labs(title = paste(input$num_var, "vs", input$num_var2, "by", input$cat_var),
-                   x = input$num_var, y = input$num_var2)
+            p <- ggplot(subsetted_data$data, aes(x = .data[[input$num_var]], y = .data[[input$num_var2]], color = .data[[input$cat_var]])) +
+              geom_point(alpha = 0.6) + labs(title = paste(input$num_var, "vs", input$num_var2, "Colored by", input$cat_var))
           }
         }
+        
+        # Apply structural user-selected Faceting modifiers safely if called
+        if (!is.null(input$facet_var) && input$facet_var != ".") {
+          p <- p + facet_wrap(as.formula(paste("~", paste0("`", input$facet_var, "`"))))
+        }
+        return(p)
       }
     })
   })
 }
 
-# Run the application 
 shinyApp(ui = ui, server = server)
