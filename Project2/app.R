@@ -71,7 +71,7 @@ ui <- fluidPage(
                      h3("About the Data"),
                      p("This dataset gives insights on online orders of a superstore in the U.S. It includes consumer orders from 2014 January - December 2017, with details about sales, profit, category, etc."),
                      p(HTML("Click here to access more details and information about the Superstore Dataset: 
-                       <a href='https://www.kaggle.com/datasets/vivek468/superstore-dataset-final' target='_blank'>
+                       <a href='https://www.kaggle.com/datasets/juhi1994/superstore/data' target='_blank'>
                        US Superstore data on Kaggle</a>")),
                      # Image related to the dataset.
                      img(src = "superstore logo.png", 
@@ -106,8 +106,7 @@ ui <- fluidPage(
                      # Use subtabs for either tables or plots
                      tabsetPanel(
                        tabPanel("Table", tableOutput("exploration_table")),
-                       tabPanel("Plot", plotOutput("exploration_plot"))
-                     )
+                       tabPanel("Plot", shinycssloaders::withSpinner(plotOutput("exploration_plot"), type = 6, color = "#0275d8"))                     )
             )
           )
         )
